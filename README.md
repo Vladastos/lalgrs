@@ -1,10 +1,12 @@
 # Matrix and Vector Operations library in rust
 
-### 1. **Matrix Operations**
-   - **Description**: Implement basic matrix operations such as addition, subtraction, multiplication, and transposition.
+## Planned features
 
-### 2. **Vector Operations**
+### 1. **Vector Operations**
    - **Description**: Implement vector operations like dot product, cross product, and vector norm.
+
+### 2. **Matrix Operations**
+   - **Description**: Implement basic matrix operations such as addition, subtraction, multiplication, and transposition.
 
 ### 3. **Linear Systems Solver**
    - **Description**: Write a program to solve a system of linear equations using methods like Gaussian elimination or matrix inversion.
