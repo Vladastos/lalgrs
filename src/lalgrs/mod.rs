@@ -12,6 +12,12 @@ pub enum LalgrsError {
         matrix_columns: usize,
     },
 
+    #[error("Mismatched matrix sizes. Left hand side matrix columns :{first_matrix_columns},  Right hand side matrix rows:{second_matrix_rows}")]
+    MismatchedMatrixDimensions {
+        first_matrix_columns: usize,
+        second_matrix_rows: usize,
+    },
+
     #[error("Could not create matrix. All columns must have the same length")]
     InvalidMatrixDimensions,
 }

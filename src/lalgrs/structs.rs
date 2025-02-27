@@ -50,73 +50,66 @@ impl<T> LalgrsMatrix<T> {
 /// If one of the two vectors is empty, returns the other one.
 /// If the two vectors have different lengths and none of them are empty, returns an error.
 /// Otherwise returns a new vector which is the sum of the two operands.
-impl<T: Add<T, Output = T>> ops::Add<LalgrsVector<T>> for LalgrsVector<T>
-where
-    for<'a> &'a T: Add<T, Output = T>,
-{
+impl<T: Add<T, Output = T> + Clone> ops::Add<LalgrsVector<T>> for LalgrsVector<T> {
     type Output = Result<LalgrsVector<T>, LalgrsError>;
     fn add(self, rhs: LalgrsVector<T>) -> Self::Output {
         if self.size() == 0 {
             return Ok(rhs);
         }
-
         if rhs.size() == 0 {
             return Ok(self);
         }
-
         if self.size() != rhs.size() {
             return Err(LalgrsError::MismatchedVectorDimensions {
                 vector1: self.size(),
                 vector2: rhs.size(),
             });
         };
-
         return Ok(LalgrsVector::new(
             self.values
                 .iter()
                 .zip(rhs.values)
-                .map(|e| -> T { e.0 + e.1 })
+                .map(|e| -> T { e.0.to_owned() + e.1.to_owned() })
                 .collect(),
         ));
     }
 }
 
 /// ## Negation of a vector. Simply multiplies each element by -1
-impl<T: Add<T, Output = T>> ops::Neg for LalgrsVector<T>
-where
-    for<'a> &'a T: Neg<Output = T>,
-{
+impl<T: Add<T, Output = T> + Neg<Output = T> + Clone> ops::Neg for LalgrsVector<T> {
     type Output = LalgrsVector<T>;
     fn neg(self) -> Self::Output {
-        return LalgrsVector::new(self.values.iter().map(|f| -> T { -f }).collect());
+        return LalgrsVector::new(
+            self.values
+                .iter()
+                .map(|f| -> T {
+                    return -f.clone();
+                })
+                .collect(),
+        );
     }
 }
 
 /// ## Subtraction between two vectors.
 /// Performs addition with the negative of the second operand
-impl<T: Add<T, Output = T> + Neg> ops::Sub<LalgrsVector<T>> for LalgrsVector<T>
-where
-    for<'a> &'a T: Add<T, Output = T>,
-    for<'a> &'a T: Neg<Output = T>,
+impl<T: Add<T, Output = T> + Neg<Output = T> + Clone> ops::Sub<LalgrsVector<T>>
+    for LalgrsVector<T>
 {
     type Output = Result<LalgrsVector<T>, LalgrsError>;
     fn sub(self, rhs: LalgrsVector<T>) -> Self::Output {
-        return self + (-rhs);
+        return self + -rhs;
     }
 }
 
 /// ## Multiplication between a vector and a scalar
 /// Multiplies each element of the vector by the scalar
-impl<T: Add<T, Output = T> + Mul<T, Output = T> + Clone> ops::Mul<T> for LalgrsVector<T>
-where
-    for<'a> &'a T: Mul<T, Output = T>,
-{
+impl<T: Add<T, Output = T> + Mul<T, Output = T> + Clone> ops::Mul<T> for LalgrsVector<T> {
     type Output = LalgrsVector<T>;
     fn mul(self, rhs: T) -> Self::Output {
         LalgrsVector::new(
             self.values
                 .iter()
-                .map(|v| -> T { v * rhs.clone() })
+                .map(|v| -> T { v.to_owned() * rhs.clone() })
                 .collect(),
         )
     }
@@ -127,9 +120,6 @@ where
 /// Otherwise returns a new vector which is the result of the multiplication
 impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T>> ops::Mul<LalgrsVector<T>>
     for LalgrsMatrix<T>
-where
-    for<'a> &'a T: Add<T, Output = T>,
-    for<'a> &'a T: Mul<T, Output = T>,
 {
     type Output = Result<LalgrsVector<T>, LalgrsError>;
     fn mul(self, rhs: LalgrsVector<T>) -> Self::Output {
@@ -148,7 +138,7 @@ where
             // Zip each LalgrsVector with the corresponding vector element
             .zip(rhs.clone().values)
             // Multiply each LalgrsVector with the corresponding vector element
-            .map(|f| -> LalgrsVector<T> { f.0 * f.1 })
+            .map(|f| -> LalgrsVector<T> { f.0.to_owned() * f.1.to_owned() })
             // Sum all LalgrsVectors
             .reduce(|res, element| -> LalgrsVector<T> { (res + element).unwrap() });
 
@@ -159,10 +149,39 @@ where
 /// ## Multiplication between two matrices
 /// If the number of columns in the first matrix does not match the number of rows in the second matrix, returns an error
 /// Otherwise returns a new matrix which is the result of the multiplication
-impl<T> ops::Mul<LalgrsMatrix<T>> for LalgrsMatrix<T> {
+impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T> + std::fmt::Debug> ops::Mul<LalgrsMatrix<T>>
+    for LalgrsMatrix<T>
+{
     type Output = Result<LalgrsMatrix<T>, LalgrsError>;
     fn mul(self, rhs: LalgrsMatrix<T>) -> Self::Output {
-        todo!();
-        return Ok(self);
+        if self.columns() != rhs.rows() {
+            return Err(LalgrsError::MismatchedMatrixDimensions {
+                first_matrix_columns: self.columns(),
+                second_matrix_rows: rhs.rows(),
+            });
+        }
+
+        let mut result_matrix: Vec<Vec<T>> = vec![];
+        for col in rhs.columns {
+            // Multiply the lhs operand by the vector represented by this column
+            let result_col: Vec<T> = col
+                .iter()
+                .zip(self.columns.clone())
+                // We group every
+                .map(|tuple| -> LalgrsVector<T> {
+                    // Multiply the lhs operand by the vector represented by this column
+                    return LalgrsVector::new(tuple.1.clone()) * tuple.0.to_owned();
+                })
+                .reduce(|acc, element| -> LalgrsVector<T> {
+                    // Sum all LalgrsVectors
+                    (acc + element).unwrap()
+                })
+                .unwrap()
+                .values;
+            // Add the result column to the result matrix
+            result_matrix.push(result_col);
+        }
+
+        return Ok(LalgrsMatrix::new(result_matrix)?);
     }
 }
