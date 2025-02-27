@@ -19,26 +19,49 @@ impl<T: Add<T, Output = T>> LalgrsVector<T> {
         self.values.len()
     }
 }
+impl<T: Add<T, Output = T>> Iterator for LalgrsVector<T> {
+    type Item = T;
 
-#[derive(Debug, Clone)]
-pub struct LalgrsMatrix<T> {
-    columns: Vec<Vec<T>>,
+    fn next(&mut self) -> Option<Self::Item> {
+        self.values.pop()
+    }
 }
 
-impl<T> LalgrsMatrix<T> {
+#[derive(Debug, Clone)]
+pub struct LalgrsMatrix<T: Add<T, Output = T>> {
+    columns: Vec<LalgrsVector<T>>,
+}
+
+impl<T: Add<T, Output = T> + Clone> LalgrsMatrix<T> {
     pub fn new(columns: Vec<Vec<T>>) -> Result<LalgrsMatrix<T>, LalgrsError> {
         let are_all_vectors_the_same_size = columns.iter().all(|v| v.len() == columns[0].len());
         if !are_all_vectors_the_same_size {
             return Err(LalgrsError::InvalidMatrixDimensions);
         }
 
-        Ok(LalgrsMatrix { columns })
+        Ok(LalgrsMatrix {
+            columns: columns
+                .iter()
+                .map(|v| LalgrsVector::new(v.clone()))
+                .collect(),
+        })
     }
     pub fn rows(&self) -> usize {
         return self.columns.len();
     }
     pub fn columns(&self) -> usize {
-        return self.columns[0].len();
+        return self.columns[0].size();
+    }
+}
+
+impl<T: Add<T, Output = T>> TryFrom<Vec<LalgrsVector<T>>> for LalgrsMatrix<T> {
+    type Error = LalgrsError;
+    fn try_from(value: Vec<LalgrsVector<T>>) -> Result<Self, Self::Error> {
+        let are_all_vectors_the_same_size = value.iter().all(|v| v.size() == value[0].size());
+        if !are_all_vectors_the_same_size {
+            return Err(LalgrsError::InvalidMatrixDimensions);
+        }
+        Ok(LalgrsMatrix { columns: value })
     }
 }
 
@@ -56,15 +79,18 @@ impl<T: Add<T, Output = T> + Clone> ops::Add<LalgrsVector<T>> for LalgrsVector<T
         if self.size() == 0 {
             return Ok(rhs);
         }
+
         if rhs.size() == 0 {
             return Ok(self);
         }
+
         if self.size() != rhs.size() {
             return Err(LalgrsError::MismatchedVectorDimensions {
                 vector1: self.size(),
                 vector2: rhs.size(),
             });
         };
+
         return Ok(LalgrsVector::new(
             self.values
                 .iter()
@@ -133,8 +159,6 @@ impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T>> ops::Mul<LalgrsVector<T
         let result = self
             .columns
             .iter()
-            // Map each column to a LalgrsVector
-            .map(|col| -> LalgrsVector<T> { return LalgrsVector::new(col.to_vec()) })
             // Zip each LalgrsVector with the corresponding vector element
             .zip(rhs.clone().values)
             // Multiply each LalgrsVector with the corresponding vector element
@@ -161,27 +185,26 @@ impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T> + std::fmt::Debug> ops::
             });
         }
 
-        let mut result_matrix: Vec<Vec<T>> = vec![];
+        let mut result_matrix: Vec<LalgrsVector<T>> = vec![];
         for col in rhs.columns {
             // Multiply the lhs operand by the vector represented by this column
-            let result_col: Vec<T> = col
-                .iter()
+            let result_col: LalgrsVector<T> = col
+                .into_iter()
                 .zip(self.columns.clone())
                 // We group every
                 .map(|tuple| -> LalgrsVector<T> {
                     // Multiply the lhs operand by the vector represented by this column
-                    return LalgrsVector::new(tuple.1.clone()) * tuple.0.to_owned();
+                    return tuple.1.clone() * tuple.0.to_owned();
                 })
                 .reduce(|acc, element| -> LalgrsVector<T> {
                     // Sum all LalgrsVectors
                     (acc + element).unwrap()
                 })
-                .unwrap()
-                .values;
+                .unwrap();
             // Add the result column to the result matrix
             result_matrix.push(result_col);
         }
 
-        return Ok(LalgrsMatrix::new(result_matrix)?);
+        return Ok(LalgrsMatrix::try_from(result_matrix)?);
     }
 }
