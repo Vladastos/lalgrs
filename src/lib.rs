@@ -1,6 +1,6 @@
 use std::ops::{self, Add, Mul, Neg};
 
-use crate::lalgrs::LalgrsError;
+use thiserror::Error;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Base struct definitions
@@ -27,7 +27,7 @@ impl<T: Add<T, Output = T>> Iterator for LalgrsVector<T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LalgrsMatrix<T: Add<T, Output = T>> {
     columns: Vec<LalgrsVector<T>>,
 }
@@ -109,7 +109,7 @@ impl<T: Add<T, Output = T> + Neg<Output = T> + Clone> ops::Neg for LalgrsVector<
             self.values
                 .iter()
                 .map(|f| -> T {
-                    return -f.clone();
+                    return -f.to_owned();
                 })
                 .collect(),
         );
@@ -170,6 +170,67 @@ impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T>> ops::Mul<LalgrsVector<T
     }
 }
 
+/// ## Addition between two matrices
+/// If the number of columns in the first matrix does not match the number of columns in the second matrix, returns an error
+/// Otherwise returns a new matrix which is the result of the addition
+impl<T: Add<T, Output = T> + Clone> ops::Add<LalgrsMatrix<T>> for LalgrsMatrix<T> {
+    type Output = Result<LalgrsMatrix<T>, LalgrsError>;
+    fn add(self, rhs: LalgrsMatrix<T>) -> Self::Output {
+        if self.columns() != rhs.columns() {
+            return Err(LalgrsError::MismatchedMatrixDimensions {
+                first_matrix_columns: self.columns(),
+                second_matrix_rows: rhs.columns(),
+            });
+        }
+        return Ok(LalgrsMatrix {
+            columns: self
+                .columns
+                .iter()
+                .zip(rhs.columns.iter())
+                .map(|f| -> LalgrsVector<T> { (f.0.to_owned() + f.1.to_owned()).unwrap() })
+                .collect(),
+        });
+    }
+}
+
+/// ## Negation of a matrix. Negates each column
+impl<T: Add<T, Output = T> + Neg<Output = T> + Clone> ops::Neg for LalgrsMatrix<T> {
+    type Output = LalgrsMatrix<T>;
+    fn neg(self) -> Self::Output {
+        let cols: Vec<LalgrsVector<T>> = self
+            .columns
+            .iter()
+            .map(|f| -> LalgrsVector<T> { -f.to_owned() })
+            .collect();
+        return LalgrsMatrix::try_from(cols).unwrap();
+    }
+}
+
+/// ## Subtraction between two matrices
+/// Performs addition with the negative of the second operand
+impl<T: Add<T, Output = T> + Neg<Output = T> + Clone> ops::Sub<LalgrsMatrix<T>>
+    for LalgrsMatrix<T>
+{
+    type Output = Result<LalgrsMatrix<T>, LalgrsError>;
+    fn sub(self, rhs: LalgrsMatrix<T>) -> Self::Output {
+        return self + -rhs;
+    }
+}
+
+/// ## Multiplication between a matrix and a scalar
+/// Multiplies each element of the matrix by the scalar
+impl<T: Add<T, Output = T> + Mul<T, Output = T> + Clone> ops::Mul<T> for LalgrsMatrix<T> {
+    type Output = LalgrsMatrix<T>;
+    fn mul(self, rhs: T) -> Self::Output {
+        let cols: Vec<LalgrsVector<T>> = self
+            .columns
+            .iter()
+            .map(|f| -> LalgrsVector<T> { f.to_owned() * rhs.clone() })
+            .collect();
+        LalgrsMatrix::try_from(cols).unwrap()
+    }
+}
+
 /// ## Multiplication between two matrices
 /// If the number of columns in the first matrix does not match the number of rows in the second matrix, returns an error
 /// Otherwise returns a new matrix which is the result of the multiplication
@@ -199,7 +260,7 @@ impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T>> ops::Mul<LalgrsMatrix<T
                     // Zip the elements of the column with the columns of the lhs operand (each element of the column will be coupled with a column of the lhs operand)
                     .map(|tuple| -> LalgrsVector<T> {
                         // Multiply each element of the column with the corresponding column of the lhs operand
-                        return tuple.1.clone() * tuple.0.clone();
+                        return tuple.1 * tuple.0;
                     })
                     .reduce(|acc, element| -> LalgrsVector<T> {
                         // Sum all LalgrsVectors. This produces a new LalgrsVector which is the result of multiplying a column of the rhs operand with a row of the lhs operand
@@ -210,4 +271,29 @@ impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T>> ops::Mul<LalgrsMatrix<T
             .collect();
         return Ok(LalgrsMatrix::try_from(result_matrix)?);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// # Errors
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug, Clone, Error, PartialEq)]
+pub enum LalgrsError {
+    #[error("Mismatched vector dimensions. Found {vector1} and {vector2}")]
+    MismatchedVectorDimensions { vector1: usize, vector2: usize },
+
+    #[error("Mismatched vector and matrix dimensions. Vector has {vector_size} elements and matrix has {matrix_columns} columns")]
+    MismatchedVectorAndMatrixDimensions {
+        vector_size: usize,
+        matrix_columns: usize,
+    },
+
+    #[error("Mismatched matrix sizes. Left hand side matrix columns :{first_matrix_columns},  Right hand side matrix rows:{second_matrix_rows}")]
+    MismatchedMatrixDimensions {
+        first_matrix_columns: usize,
+        second_matrix_rows: usize,
+    },
+
+    #[error("Could not create matrix. All columns must have the same length")]
+    InvalidMatrixDimensions,
 }
