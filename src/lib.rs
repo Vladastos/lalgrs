@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     fmt::{Debug, Display},
     ops::{self, Add, Mul, Neg},
 };
@@ -11,23 +12,25 @@ use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LalgrsVector<T: Add<T, Output = T>> {
-    pub values: Vec<T>,
+    pub values: VecDeque<T>,
 }
 
 impl<T: Add<T, Output = T>> LalgrsVector<T> {
     pub fn new(values: Vec<T>) -> LalgrsVector<T> {
-        LalgrsVector { values }
+        LalgrsVector {
+            values: values.into(),
+        }
     }
     pub fn size(&self) -> usize {
         self.values.len()
     }
 }
 
-impl<T: Add<T, Output = T>> Iterator for LalgrsVector<T> {
+impl<T: Add<T, Output = T> + Clone> Iterator for LalgrsVector<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.values.pop()
+        self.values.pop_front()
     }
 }
 
@@ -46,7 +49,7 @@ impl<T: Add<T, Output = T> + Clone> LalgrsMatrix<T> {
         Ok(LalgrsMatrix {
             columns: columns
                 .iter()
-                .map(|v| LalgrsVector::new(v.clone()))
+                .map(|v| LalgrsVector::new(v.to_vec()))
                 .collect(),
         })
     }
@@ -73,6 +76,24 @@ impl<T: Add<T, Output = T>> TryFrom<Vec<LalgrsVector<T>>> for LalgrsMatrix<T> {
     }
 }
 
+impl<T: Add<T, Output = T> + Display> Display for LalgrsMatrix<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.columns
+                .iter()
+                .map(|v| v
+                    .values
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "))
+                .collect::<Vec<String>>()
+                .join("\n")
+        )
+    }
+}
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// # Operations
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -276,7 +297,7 @@ impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T> + Debug> ops::Mul<Lalgrs
                     .to_owned()
                     .into_iter()
                     // Iterate over the elements of the column
-                    .zip(self.columns.iter().rev())
+                    .zip(self.columns.iter())
                     // Zip the elements of the column with the columns of the lhs operand (each element of the column will be coupled with a column of the lhs operand)
                     .map(|tuple| -> LalgrsVector<T> {
                         // Multiply each element of the column with the corresponding column of the lhs operand

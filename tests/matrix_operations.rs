@@ -1,10 +1,5 @@
 use lalgrs::{LalgrsError, LalgrsMatrix, LalgrsVector};
 
-fn init_vecs() -> (LalgrsVector<f64>, LalgrsVector<f64>) {
-    let vec1 = LalgrsVector::new(vec![1.0, 2.0, 3.0]);
-    let vec2 = LalgrsVector::new(vec![2.0, 3.0, 4.0]);
-    return (vec1, vec2);
-}
 fn init_2x2_matrices() -> (LalgrsMatrix<f64>, LalgrsMatrix<f64>) {
     let matrix1 = LalgrsMatrix::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]]).unwrap();
     let matrix2 = LalgrsMatrix::new(vec![vec![2.0, 0.0], vec![0.0, 2.0]]).unwrap();
