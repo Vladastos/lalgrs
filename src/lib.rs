@@ -256,6 +256,10 @@ impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T> + Debug> ops::Mul<Lalgrs
     //! FIXME: This function clones too much
     type Output = Result<LalgrsMatrix<T>, LalgrsError>;
     fn mul(self, rhs: LalgrsMatrix<T>) -> Self::Output {
+        if self.columns() == 0 || rhs.columns() == 0 {
+            return Ok(LalgrsMatrix::new(vec![]).unwrap());
+        }
+
         if self.columns() != rhs.rows() {
             return Err(LalgrsError::MismatchedMatrixDimensions {
                 first_matrix_columns: self.columns(),
@@ -263,18 +267,28 @@ impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T> + Debug> ops::Mul<Lalgrs
             });
         }
 
-        let mut result_matrix: Vec<LalgrsVector<T>> = vec![];
-        // For each column of the second matrix
-        for column in rhs.columns {
-            let mut result_column: LalgrsVector<T> = LalgrsVector::new(vec![]);
-            column.zip(self.columns.iter().rev()).for_each(|f| {
-                // Multiply each of the elements of the column by the corresponding column
-                // of the first matrix, then sum the results
-                result_column =
-                    ((f.1.to_owned() * f.0.to_owned()) + result_column.clone()).unwrap();
-            });
-            result_matrix.push(result_column);
-        }
+        let result_matrix: Vec<LalgrsVector<T>> = rhs
+            .columns
+            .iter()
+            // For each column of the rhs operand
+            .map(|col| -> LalgrsVector<T> {
+                return col
+                    .to_owned()
+                    .into_iter()
+                    // Iterate over the elements of the column
+                    .zip(self.columns.iter().rev())
+                    // Zip the elements of the column with the columns of the lhs operand (each element of the column will be coupled with a column of the lhs operand)
+                    .map(|tuple| -> LalgrsVector<T> {
+                        // Multiply each element of the column with the corresponding column of the lhs operand
+                        return tuple.1.to_owned() * tuple.0;
+                    })
+                    .reduce(|acc, element| -> LalgrsVector<T> {
+                        // Sum all LalgrsVectors. This produces a new LalgrsVector which is the result of multiplying a column of the rhs operand with a row of the lhs operand
+                        (acc + element).unwrap()
+                    })
+                    .unwrap();
+            })
+            .collect();
 
         return Ok(LalgrsMatrix::try_from(result_matrix)?);
     }

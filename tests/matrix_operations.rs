@@ -144,3 +144,66 @@ fn test_matrix_mul() {
         LalgrsMatrix::new(vec![vec![1, 1], vec![-1, 0]]).unwrap()
     );
 }
+
+#[test]
+fn test_matrix_mul_error() {
+    let (matrix_3x3_1, matrix_3x3_2) = init_3x3_matrices();
+    let (matrix_2x2_1, matrix_2x2_2) = init_2x2_matrices();
+    assert_eq!(
+        (matrix_3x3_1 * matrix_2x2_2).unwrap_err(),
+        LalgrsError::MismatchedMatrixDimensions {
+            first_matrix_columns: 3,
+            second_matrix_rows: 2
+        }
+    );
+    assert_eq!(
+        (matrix_2x2_1 * matrix_3x3_2).unwrap_err(),
+        LalgrsError::MismatchedMatrixDimensions {
+            first_matrix_columns: 2,
+            second_matrix_rows: 3
+        }
+    );
+}
+
+#[test]
+fn test_matrix_mul_empty() {
+    let (matrix1, matrix2) = init_2x2_matrices();
+    let empty_matrix = LalgrsMatrix::new(vec![]).unwrap();
+    assert_eq!(
+        (matrix1.clone() * empty_matrix.clone()).unwrap(),
+        empty_matrix
+    );
+    assert_eq!(
+        (empty_matrix.clone() * matrix1.clone()).unwrap(),
+        empty_matrix
+    );
+    assert_eq!(
+        (matrix2.clone() * empty_matrix.clone()).unwrap(),
+        empty_matrix
+    );
+    assert_eq!(
+        (empty_matrix.clone() * matrix2.clone()).unwrap(),
+        empty_matrix
+    );
+    assert_eq!(
+        (empty_matrix.clone() * empty_matrix.clone()).unwrap(),
+        empty_matrix
+    );
+}
+
+#[test]
+fn test_matrix_vector_mul() {
+    let matrix1 = LalgrsMatrix::new(vec![vec![2.0, 0.0], vec![0.0, 2.0]]).unwrap();
+    let vector1 = LalgrsVector::new(vec![1.0, 2.0]);
+    assert_eq!(
+        (matrix1 * vector1).unwrap(),
+        LalgrsVector::new(vec![2.0, 4.0])
+    );
+
+    let matrix2 = LalgrsMatrix::new(vec![vec![1.0, 2.0], vec![3.0, 4.0]]).unwrap();
+    let vector2 = LalgrsVector::new(vec![5.0, 6.0]);
+    assert_eq!(
+        (matrix2 * vector2).unwrap(),
+        LalgrsVector::new(vec![23.0, 34.0])
+    );
+}
