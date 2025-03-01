@@ -1,4 +1,7 @@
-use std::ops::{self, Add, Mul, Neg};
+use std::{
+    fmt::{Debug, Display},
+    ops::{self, Add, Mul, Neg},
+};
 
 use thiserror::Error;
 
@@ -19,6 +22,7 @@ impl<T: Add<T, Output = T>> LalgrsVector<T> {
         self.values.len()
     }
 }
+
 impl<T: Add<T, Output = T>> Iterator for LalgrsVector<T> {
     type Item = T;
 
@@ -50,6 +54,10 @@ impl<T: Add<T, Output = T> + Clone> LalgrsMatrix<T> {
         return self.columns.len();
     }
     pub fn columns(&self) -> usize {
+        if self.columns.is_empty() {
+            return 0;
+        }
+
         return self.columns[0].size();
     }
 }
@@ -176,6 +184,14 @@ impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T>> ops::Mul<LalgrsVector<T
 impl<T: Add<T, Output = T> + Clone> ops::Add<LalgrsMatrix<T>> for LalgrsMatrix<T> {
     type Output = Result<LalgrsMatrix<T>, LalgrsError>;
     fn add(self, rhs: LalgrsMatrix<T>) -> Self::Output {
+        if self.columns() == 0 {
+            return Ok(rhs);
+        }
+
+        if rhs.columns() == 0 {
+            return Ok(self);
+        }
+
         if self.columns() != rhs.columns() {
             return Err(LalgrsError::MismatchedMatrixDimensions {
                 first_matrix_columns: self.columns(),
@@ -234,7 +250,7 @@ impl<T: Add<T, Output = T> + Mul<T, Output = T> + Clone> ops::Mul<T> for LalgrsM
 /// ## Multiplication between two matrices
 /// If the number of columns in the first matrix does not match the number of rows in the second matrix, returns an error
 /// Otherwise returns a new matrix which is the result of the multiplication
-impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T>> ops::Mul<LalgrsMatrix<T>>
+impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T> + Debug> ops::Mul<LalgrsMatrix<T>>
     for LalgrsMatrix<T>
 {
     //! FIXME: This function clones too much
@@ -247,28 +263,19 @@ impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T>> ops::Mul<LalgrsMatrix<T
             });
         }
 
-        let result_matrix: Vec<LalgrsVector<T>> = rhs
-            .columns
-            .iter()
-            // For each column of the rhs operand
-            .map(|col| -> LalgrsVector<T> {
-                return col
-                    .clone()
-                    .into_iter()
-                    // Iterate over the elements of the column
-                    .zip(self.columns.clone())
-                    // Zip the elements of the column with the columns of the lhs operand (each element of the column will be coupled with a column of the lhs operand)
-                    .map(|tuple| -> LalgrsVector<T> {
-                        // Multiply each element of the column with the corresponding column of the lhs operand
-                        return tuple.1 * tuple.0;
-                    })
-                    .reduce(|acc, element| -> LalgrsVector<T> {
-                        // Sum all LalgrsVectors. This produces a new LalgrsVector which is the result of multiplying a column of the rhs operand with a row of the lhs operand
-                        (acc + element).unwrap()
-                    })
-                    .unwrap();
-            })
-            .collect();
+        let mut result_matrix: Vec<LalgrsVector<T>> = vec![];
+        // For each column of the second matrix
+        for column in rhs.columns {
+            let mut result_column: LalgrsVector<T> = LalgrsVector::new(vec![]);
+            column.zip(self.columns.iter().rev()).for_each(|f| {
+                // Multiply each of the elements of the column by the corresponding column
+                // of the first matrix, then sum the results
+                result_column =
+                    ((f.1.to_owned() * f.0.to_owned()) + result_column.clone()).unwrap();
+            });
+            result_matrix.push(result_column);
+        }
+
         return Ok(LalgrsMatrix::try_from(result_matrix)?);
     }
 }
