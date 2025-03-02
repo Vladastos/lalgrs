@@ -1,13 +1,13 @@
 use std::{
     collections::VecDeque,
-    fmt::{Debug, Display},
+    fmt::Debug,
     ops::{self, Add, Mul, Neg},
 };
 
 use thiserror::Error;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Base struct definitions
+/// # Base struct definitions
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Clone, PartialEq)]
@@ -76,26 +76,8 @@ impl<T: Add<T, Output = T>> TryFrom<Vec<LalgrsVector<T>>> for LalgrsMatrix<T> {
     }
 }
 
-impl<T: Add<T, Output = T> + Display> Display for LalgrsMatrix<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.columns
-                .iter()
-                .map(|v| v
-                    .values
-                    .iter()
-                    .map(|e| e.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", "))
-                .collect::<Vec<String>>()
-                .join("\n")
-        )
-    }
-}
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// # Operations
+/// # Vector Operations
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// ## Addition between two vectors.
@@ -169,6 +151,10 @@ impl<T: Add<T, Output = T> + Mul<T, Output = T> + Clone> ops::Mul<T> for LalgrsV
         )
     }
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// # Matrix Operations
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// ## Multiplication between a matrix and a vector
 /// If the number of columns in the matrix does not match the number of elements in the vector, returns an error
@@ -274,7 +260,6 @@ impl<T: Add<T, Output = T> + Mul<T, Output = T> + Clone> ops::Mul<T> for LalgrsM
 impl<T: Add<T, Output = T> + Clone + Mul<T, Output = T> + Debug> ops::Mul<LalgrsMatrix<T>>
     for LalgrsMatrix<T>
 {
-    //! FIXME: This function clones too much
     type Output = Result<LalgrsMatrix<T>, LalgrsError>;
     fn mul(self, rhs: LalgrsMatrix<T>) -> Self::Output {
         if self.columns() == 0 || rhs.columns() == 0 {
